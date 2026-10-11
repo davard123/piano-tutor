@@ -67,6 +67,7 @@
       <select id="piece-select" aria-label="选择曲目"></select>
       <button id="btn-start">▶ 开始练习</button>
       <button id="btn-stop" disabled>⏹ 结束</button>
+      <button id="btn-voice" style="background:#e5e7eb">🔊 语音开</button>
     </div>
     <div id="status" class="status">初始化…</div>
     <div class="meter"><div id="meter-fill"></div></div>
@@ -613,6 +614,32 @@ globalThis.PE = {
   let omrImageData = null, omrNotes = null, omrTitle = '';
   let previewTimer = null;
 
+  /* 语音提示：浏览器内置中文 TTS，离线免费，iPad Safari 可用 */
+  let voiceOn = localStorage.getItem('ptVoice') !== 'off';
+  let zhVoice = null;
+  function pickVoice() {
+    try {
+      const vs = window.speechSynthesis.getVoices();
+      zhVoice = vs.find(v => v.lang && v.lang.toLowerCase().indexOf('zh') === 0) || null;
+    } catch (e) { zhVoice = null; }
+  }
+  let lastSpeakTs = 0;
+  function speak(text, force) {
+    if (!voiceOn || !('speechSynthesis' in window)) return;
+    const now = Date.now();
+    if (!force && now - lastSpeakTs < 2000) return; // 节流：太密的提示只说最新的一句
+    lastSpeakTs = now;
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      if (zhVoice) u.voice = zhVoice;
+      u.lang = 'zh-CN'; u.rate = 0.95;
+      window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+  const PRAISE = ['很好', '不错，继续', '太棒了', '节奏很好', '就是这样，保持住'];
+  function updateVoiceBtn() { $('btn-voice').textContent = voiceOn ? '🔊 语音开' : '🔇 语音关'; }
+
   function loadScript(src) {
     return new Promise((resolve, reject) => {
       const s = document.createElement('script');
@@ -738,6 +765,7 @@ globalThis.PE = {
     $('btn-stop').disabled = false;
     $('piece-select').disabled = true;
     setStatus('正在听…请开始弹奏', 'ok');
+    speak('第一个音是' + PE.midiName(piece.notes[0].midi).cn + '，开始吧', true);
     timerId = setInterval(tick, 45);
   }
 
@@ -774,6 +802,8 @@ globalThis.PE = {
       for (const mi of (r.missed || [])) { colorNote(mi, '#e5484d'); stats.missed++; }
       colorNote(r.idx, '#22a355');
       stats.correct++;
+      if (r.missed && r.missed.length >= 2) speak('刚才漏了' + r.missed.length + '个音，别着急');
+      else if (stats.correct % 12 === 0) speak(PRAISE[Math.floor(Math.random() * PRAISE.length)]);
       try { osmd.cursor.next(); } catch (e) {}
     } else if (r.type === 'wrong') {
       colorNote(r.idx, '#e5484d');
@@ -781,6 +811,7 @@ globalThis.PE = {
       const exp = PE.midiName(r.expected);
       $('hint').textContent = '这个音应该是「' + exp.cn + '」，再试一次';
       $('hint').style.display = 'block';
+      speak('错了，这个音是' + exp.cn + '，再试一次');
       setTimeout(() => { $('hint').style.display = 'none'; }, 2500);
     }
     updateStatsUI();
@@ -811,6 +842,7 @@ globalThis.PE = {
     $('report').style.display = 'block';
     $('report').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     setStatus('练习完成，已出报告', 'ok');
+    speak('练习完成！音准' + s.accuracy + '分，完整度' + s.completeness + '分，节奏' + s.rhythm + '分，' + s.grade, true);
   }
 
   /* 曲目 = 内置 + 本地曲库（拍照识谱加入的） */
@@ -856,6 +888,18 @@ globalThis.PE = {
     initOMR();
     $('btn-start').addEventListener('click', startPractice);
     $('btn-stop').addEventListener('click', () => { stopPractice(); });
+    if ('speechSynthesis' in window) {
+      pickVoice();
+      window.speechSynthesis.onvoiceschanged = pickVoice;
+    }
+    updateVoiceBtn();
+    $('btn-voice').addEventListener('click', () => {
+      voiceOn = !voiceOn;
+      try { localStorage.setItem('ptVoice', voiceOn ? 'on' : 'off'); } catch (e) {}
+      updateVoiceBtn();
+      if (voiceOn) speak('语音提示已开启', true);
+      else if ('speechSynthesis' in window) { try { window.speechSynthesis.cancel(); } catch (e) {} }
+    });
     $('btn-retry').addEventListener('click', () => {
       $('report').style.display = 'none';
       startPractice();
