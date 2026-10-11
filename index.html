@@ -95,6 +95,10 @@
       <input id="worker-url" placeholder="识谱服务地址（只需设置一次）" style="flex:1;min-width:180px">
       <button id="btn-save-worker" style="background:#e5e7eb">保存</button>
     </div>
+    <div class="row" style="margin-top:10px">
+      <button id="btn-import" style="background:#e5e7eb;flex:1">📥 导入本地曲库（JSON）</button>
+      <input type="file" id="import-input" accept=".json,application/json" style="display:none">
+    </div>
   </div>
 
   <div class="card">
@@ -263,6 +267,166 @@ var PIECES = {
       [60,1],[60,1],[62,1],[64,1],[64,1.5],[62,0.5],[62,2],
       [64,1],[64,1],[65,1],[67,1],[67,1],[65,1],[64,1],[62,1],
       [60,1],[60,1],[62,1],[64,1],[62,1.5],[60,0.5],[60,2],
+    ],
+  },
+  a2_down_in_the_valley: {
+    title: 'Down in the Valley',
+    beatsPerMeasure: 3,
+    seq: [
+      [69,1],
+      [72,1],
+      [76,1],
+      [77,3],
+      [74,3],
+      [79,1],
+      [76,1],
+      [74,1],
+      [76,3],
+      [76,3],
+      [69,1],
+      [72,1],
+      [76,1],
+      [81,3],
+    ],
+  },
+  a2_bridal_chorus: {
+    title: 'Bridal Chorus',
+    beatsPerMeasure: 4,
+    seq: [
+      [67,2],
+      [69,1.5],
+      [71,0.5],
+      [72,4],
+      [67,2],
+      [71,1.5],
+      [76,0.5],
+      [76,2],
+      [74,1],
+      [71,1],
+      [69,2],
+      [67,1.5],
+      [72,0.5],
+      [72,4],
+      [67,2],
+      [72,1.5],
+      [72,0.5],
+      [69,4],
+      [67,2],
+      [72,1.5],
+      [72,0.5],
+      [76,4],
+      [67,2],
+      [72,1.5],
+      [71,0.5],
+      [69,2],
+      [74,1.5],
+      [76,0.5],
+      [72,4],
+    ],
+  },
+  a2_hava_nagila: {
+    title: 'Hava Nagila',
+    beatsPerMeasure: 4,
+    seq: [
+      [62,2],
+      [62,2],
+      [64,1],
+      [66,1],
+      [67,1],
+      [64,1],
+      [66,2],
+      [67,2],
+      [67,1],
+      [69,1],
+      [67,1],
+      [66,1],
+      [62,2],
+      [62,2],
+      [64,1],
+      [66,1],
+      [67,1],
+      [64,1],
+      [66,2],
+      [67,2],
+      [67,1],
+      [69,1],
+      [67,1],
+      [66,1],
+    ],
+  },
+  a2_la_donna_e_mobile: {
+    title: 'La Donna e Mobile',
+    beatsPerMeasure: 3,
+    seq: [
+      [74,1],
+      [74,1],
+      [74,1],
+      [77,0.75],
+      [75,0.25],
+      [74,2],
+      [72,1],
+      [72,1],
+      [72,1],
+      [75,0.75],
+      [74,0.25],
+      [72,2],
+      [74,1],
+      [72,1],
+      [70,1],
+      [70,0.75],
+      [69,0.25],
+      [67,2],
+      [72,1],
+      [70,1],
+      [67,1],
+      [75,0.75],
+      [74,0.25],
+      [72,2],
+      [74,1],
+      [72,1],
+      [70,1],
+      [70,0.75],
+      [69,0.25],
+      [67,2],
+      [72,1],
+      [70,1],
+      [67,1],
+      [67,0.75],
+      [65,0.25],
+      [65,2],
+      [74,1],
+      [74,1],
+      [74,1],
+      [77,0.75],
+      [75,0.25],
+      [74,2],
+      [72,1],
+      [72,1],
+      [72,1],
+      [75,0.75],
+      [74,0.25],
+      [72,2],
+      [74,1],
+      [72,1],
+      [70,1],
+      [70,0.75],
+      [69,0.25],
+      [67,2],
+      [72,1],
+      [70,1],
+      [67,1],
+      [67,0.75],
+      [65,0.25],
+      [65,2],
+      [74,1],
+      [74,1],
+      [74,1],
+      [77,0.75],
+      [75,0.25],
+      [74,2],
+      [72,1],
+      [72,1],
+      [72,1],
     ],
   },
 };
@@ -875,6 +1039,38 @@ globalThis.PE = {
       if (v) localStorage.setItem('ptWorkerUrl', v);
       else localStorage.removeItem('ptWorkerUrl');
       setStatus(v ? '识谱服务地址已保存' : '已清空识谱服务地址', v ? 'ok' : '');
+    });
+    /* 本地曲库 JSON 导入：{key:{title,beatsPerMeasure,seq:[[midi,beats]]}} → ptCustomPieces */
+    $('btn-import').addEventListener('click', () => $('import-input').click());
+    $('import-input').addEventListener('change', async (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      try {
+        const defs = JSON.parse(await f.text());
+        const keys = Object.keys(defs);
+        if (!keys.length) throw new Error('文件里没有曲目');
+        let custom = {};
+        try { custom = JSON.parse(localStorage.getItem('ptCustomPieces') || '{}'); } catch (e2) {}
+        let n = 0;
+        for (const k of keys) {
+          const d = defs[k];
+          if (!d || typeof d.title !== 'string' || !Array.isArray(d.seq) || !d.seq.length) continue;
+          if (!d.seq.every(p => Array.isArray(p) && p.length === 2 && p[0] >= 21 && p[0] <= 108 && p[1] > 0)) continue;
+          custom['imp_' + k.replace(/^imp_/, '')] = {
+            title: d.title,
+            beatsPerMeasure: d.beatsPerMeasure || 4,
+            seq: d.seq,
+          };
+          n++;
+        }
+        if (!n) throw new Error('没有可导入的有效曲目');
+        localStorage.setItem('ptCustomPieces', JSON.stringify(custom));
+        rebuildPieceOptions(pieceKey);
+        setStatus(`已导入 ${n} 首到本地曲库`, 'ok');
+      } catch (err) {
+        setStatus('导入失败：' + err.message, 'err');
+      }
+      e.target.value = '';
     });
   }
 
