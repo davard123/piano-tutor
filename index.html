@@ -247,6 +247,9 @@ class PitchTracker {
 }
 
 /* 曲目定义：seq 为 [midi, 时值(拍)] */
+
+/* 音高类别（忽略八度）：YIN 对钢琴常有八度误差，按音名比对更稳健 */
+function pitchClass(m) { return ((m % 12) + 12) % 12; }
 var PIECES = {
   twinkle: {
     title: '小星星',
@@ -1517,7 +1520,7 @@ class ScoreFollower {
     const notes = this.piece.notes;
     const cur = notes[this.idx];
 
-    if (midi === cur.midi) {
+    if (pitchClass(midi) === pitchClass(cur.midi)) {
       const ev = { type: 'correct', idx: this.idx, midi: midi, t: t, expectedBeat: cur.startBeat };
       this.events.push(ev);
       this.idx++;
@@ -1529,7 +1532,7 @@ class ScoreFollower {
     // 前瞻：是否跳过了几个音直接弹到后面？
     const lookMax = Math.min(this.idx + 4, notes.length);
     for (let j = this.idx + 1; j < lookMax; j++) {
-      if (notes[j].midi === midi) {
+      if (pitchClass(notes[j].midi) === pitchClass(midi)) {
         const missed = [];
         for (let k = this.idx; k < j; k++) {
           this.events.push({ type: 'missed', idx: k, midi: notes[k].midi, t: t, expectedBeat: notes[k].startBeat });
