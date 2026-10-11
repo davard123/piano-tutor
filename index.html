@@ -145,7 +145,7 @@ function yinPitch(buffer, sampleRate, opts) {
   const threshold = opts.threshold !== undefined ? opts.threshold : 0.15;
   const minFreq = opts.minFreq || 55;
   const maxFreq = opts.maxFreq || 1400;
-  const silenceRms = opts.silenceRms !== undefined ? opts.silenceRms : 0.015;
+  const silenceRms = opts.silenceRms !== undefined ? opts.silenceRms : 0.007;
   const N = buffer.length;
   const half = N >> 1;
 
@@ -1662,6 +1662,7 @@ globalThis.PE = {
   let running = false;
   let audioCtx = null, analyser = null, micStream = null, timerId = null;
   let audioBuf = null;
+  let quietFrames = 0, quietHintOn = false;
   let stats = null;
   let omrImageData = null, omrNotes = null, omrTitle = '';
   let previewTimer = null;
@@ -1811,6 +1812,7 @@ globalThis.PE = {
     updateTargetUI();
     updateStatsUI();
     $('live-heard').textContent = '—';
+    quietFrames = 0; quietHintOn = false;
 
     running = true;
     $('btn-start').disabled = true;
@@ -1842,6 +1844,18 @@ globalThis.PE = {
 
     const freq = PE.yinPitch(audioBuf, audioCtx.sampleRate);
     if (freq) $('live-heard').textContent = PE.midiName(PE.freqToMidi(freq)).cn + ' ' + freq.toFixed(0) + 'Hz';
+    // 有声音但识别不到音高 → 提示声音太小
+    if (!freq && rms > 0.004) {
+      quietFrames++;
+      if (quietFrames > 25 && !quietHintOn) {
+        quietHintOn = true;
+        $('hint').textContent = '⚠️ 听到声音但识别不到音高：试着弹响一点，或把 iPad 放近钢琴';
+        $('hint').style.display = 'block';
+      }
+    } else {
+      quietFrames = 0;
+      if (quietHintOn && freq) { quietHintOn = false; $('hint').style.display = 'none'; }
+    }
     const midi = tracker.push(freq);
     if (midi !== null) onNote(midi);
   }
