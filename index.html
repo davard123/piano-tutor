@@ -207,6 +207,12 @@ function midiName(midi) {
   }
   return { en: '?', cn: '?', midi: midi };
 }
+/* 五线谱音名（纯字母，不带八度），用于语音播报 */
+function noteLetter(midi) {
+  const pc = ((midi % 12) + 12) % 12;
+  if (pc in PC_TO_DEGREE) return NOTE_EN[PC_TO_DEGREE[pc]];
+  return '?';
+}
 
 /* 把原始帧级基频转成稳定的音符事件（含重复音重触发） */
 class PitchTracker {
@@ -1640,7 +1646,7 @@ function pieceToMusicXML(piece) {
 }
 
 globalThis.PE = {
-  yinPitch, freqToMidi, midiToFreq, midiName,
+  yinPitch, freqToMidi, midiToFreq, midiName, noteLetter,
   PitchTracker, ScoreFollower, preparePiece, scorePerformance,
   pieceToMusicXML, PIECES,
 };
@@ -1819,7 +1825,7 @@ globalThis.PE = {
     $('btn-stop').disabled = false;
     $('piece-select').disabled = true;
     setStatus('正在听…请开始弹奏', 'ok');
-    speak('第一个音是' + PE.midiName(piece.notes[0].midi).cn + '，开始吧', true);
+    speak('第一个音是' + PE.noteLetter(piece.notes[0].midi) + '，开始吧', true);
     timerId = setInterval(tick, 45);
   }
 
@@ -1875,9 +1881,9 @@ globalThis.PE = {
       colorNote(r.idx, '#e5484d');
       stats.wrong++;
       const exp = PE.midiName(r.expected);
-      $('hint').textContent = '这个音应该是「' + exp.cn + '」，再试一次';
+      $('hint').textContent = '这个音应该是「' + PE.noteLetter(r.expected) + '」，再试一次';
       $('hint').style.display = 'block';
-      speak('错了，这个音是' + exp.cn + '，再试一次');
+      speak('错了，这个音是' + PE.noteLetter(r.expected) + '，再试一次');
       setTimeout(() => { $('hint').style.display = 'none'; }, 2500);
     }
     updateStatsUI();
